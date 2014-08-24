@@ -1,0 +1,94 @@
+---
+title: "Practical Machine Learning"
+output: html_document
+---
+##Introduction
+The goal of this project is to predict the manner in which 6 participants performed in a weight lifting exercise. This is the "classe" variable in the training set. This data set contain 160 features in total.
+The six healthy participants were asked to perform one set of 10 repetitions of the Unilateral Dumbbell Biceps Curl in five different fashions: exactly according to the specification (Class A), throwing the elbows to the front (Class B), lifting the dumbbell only halfway (Class C), lowering the dumbbell only halfway (Class D) and throwing the hips to the front (Class E). Class A corresponds to the specified execution of the exercise, while the other 4 classes correspond to common mistakes.
+
+The main objectives of this project are as follows
+
+-Predict the manner in which they did the exercise depicted by the classe variable.
+-Build a prediction model using different features and cross-validation technique.
+-Calculate the out of sample error.
+-Use the prediction model to predict 20 different test cases provided. 
+
+##Setting Environment
+```{r}
+library(knitr)
+opts_chunk$set(cache=TRUE,echo=TRUE)
+```
+```{r}
+library(caret)
+library(randomForest)
+```
+##Loading Data
+```{r}
+train <- read.csv("pml-training.csv")
+test <-read.csv("pml-testing.csv")
+```
+```{r}
+
+train_features<-train[,7:ncol(train)]
+
+test_features<-test[,7:ncol(train)]
+
+
+train_features<-train_features[,colSums(is.na(train_features))==0]
+test_features<-test_features[,colSums(is.na(train_features))==0]
+
+cor_features<-cor(train_features[sapply(train_features, is.numeric)])
+highCorr <- findCorrelation(cor_features, 0.90)
+
+train_features <- train_features[, -highCorr]
+test_features <- test_features[, -highCorr]
+set.seed(1245)
+partition <- createDataPartition(y = train_features$classe, p = 0.6, list = FALSE)
+trainingdata <- train_features[partition, ]
+testdata <- train_features[-partition, ]
+
+d<-data.matrix(trainingdata[,-ncol(trainingdata)])
+d<-data.frame(d)
+
+result <- rfcv(d[,1:ncol(d)-1], trainingdata$classe, cv.fold=10)
+with(result, plot(n.var, error.cv, log="x", type="o", lwd=2))
+
+modelrf <- randomForest(y=trainingdata$classe,x=d[,1:ncol(d)-1], prox = TRUE, importance = TRUE, trControl = trainControl(method = "repeatedcv", number = 5, allowParallel = TRUE))
+
+modelrf
+varImpPlot(modelrf)
+impVar<-importance(model,type=1)
+impVarIndex<-sort(impVar[,1],index.return=TRUE,decreasing=TRUE)
+
+names(d[,impVarIndex$ix[1:10]])
+
+modelrf1<-randomForest(y=trainingdata$classe, x=d[,impVarIndex$ix[1:10]])
+
+modelrf1
+
+testd<-data.matrix(testdata[,-ncol(trainingdata)])
+testd<-data.frame(testd)
+
+predicted<-predict(modelrf1,testd[,impVarIndex$ix[1:10]])
+
+confusionMatrix(predicted,testdata$classe)
+
+outsample<-data.matrix(test_features[,-ncol(trainingdata)])
+outsample<-data.frame(outsample)
+outsample.result<-predict(modelrf1,outsample[,impVarIndex$ix[1:10]])
+
+outsample.result <- as.character(outsample.result)
+outsample.result
+
+pml_write_files = function(x) {
+    n = length(x)
+    for (i in 1:n) {
+        filename = paste0("problem_id_", i, ".txt")
+        write.table(x[i], file = filename, quote = FALSE, row.names = FALSE, 
+            col.names = FALSE)
+    }
+}
+
+pml_write_files(outsample.result)
+```
+
