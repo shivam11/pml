@@ -32,10 +32,10 @@ test <-read.csv("pml-testing.csv")
 train_features<-train[,7:ncol(train)]
 
 test_features<-test[,7:ncol(train)]
+validFeatures<-colSums(is.na(train_features))
 
-
-train_features<-train_features[,colSums(is.na(train_features))==0]
-test_features<-test_features[,colSums(is.na(train_features))==0]
+train_features<-train_features[,validFeatures==0]
+test_features<-test_features[,validFeatures==0]
 
 cor_features<-cor(train_features[sapply(train_features, is.numeric)])
 highCorr <- findCorrelation(cor_features, 0.90)
@@ -57,7 +57,7 @@ modelrf <- randomForest(y=trainingdata$classe,x=d[,1:ncol(d)-1], prox = TRUE, im
 
 modelrf
 varImpPlot(modelrf)
-impVar<-importance(model,type=1)
+impVar<-importance(modelrf,type=1)
 impVarIndex<-sort(impVar[,1],index.return=TRUE,decreasing=TRUE)
 
 names(d[,impVarIndex$ix[1:10]])
